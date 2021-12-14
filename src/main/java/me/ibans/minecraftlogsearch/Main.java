@@ -11,6 +11,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.Scanner;
 
 public class Main {
@@ -20,6 +22,8 @@ public class Main {
 
     // needed to run setDefaultLogsDirectory method only on startup
     private static boolean defaultDirectorySetAttempt = false;
+
+    private static DateRange dateRange = new DateRange();
 
     public static void main(String[] args) {
         while (showMenu) {
@@ -45,9 +49,10 @@ public class Main {
         System.out.println("Select an option: \n");
         System.out.println("1. Search your logs.\n" +
                 "2. Change logs directory.\n" +
-                "3. Change logs directory (via terminal)\n" +
-                "4. Dump search results to text file.\n" +
-                "5. Quit\n");
+                "3. Change logs directory (via terminal).\n" +
+                "4. Change date bounds.\n" +
+                "5. Dump search results to text file.\n" +
+                "6. Quit.\n");
         Scanner selector = new Scanner(System.in);
         System.out.print("\nOption: ");
         String option = selector.nextLine();
@@ -63,9 +68,12 @@ public class Main {
                 changeLogDirectoryTerminal();
                 break;
             case "4":
-                dumpSearchResults();
+                setDateRangeBounds();
                 break;
             case "5":
+                dumpSearchResults();
+                break;
+            case "6":
                 showMenu = false;
                 break;
             default:
@@ -105,11 +113,10 @@ public class Main {
 
     private static void searchFiles(String directory) {
         Scanner input = new Scanner(System.in);
-        Searcher s = new Searcher(directory, ".gz");
+        Searcher s = new Searcher(directory, ".gz", dateRange);
         if (s.canSearch()) {
             System.out.print("Enter something to search for: ");
             String searchTerm = input.nextLine();
-            System.out.println("\nSearching...");
             s.searchFiles(searchTerm);
         } else {
             System.out.println("No logs detected! Did you select a valid directory?");
@@ -137,9 +144,37 @@ public class Main {
         PropertiesUtil.saveFile(directory);
     }
 
+    private static void setDateRangeBounds() {
+        Scanner input = new Scanner(System.in);
+        System.out.println("Lower bound is currently set to " + dateRange.getLowerBound().toString());
+        System.out.println("Upper bound is currently set to " + dateRange.getUpperBound().toString() + "\n");
+        System.out.print("Enter lower bound date (leave blank for no lower bound): ");
+        if (input.hasNext()) {
+            String str = input.nextLine();
+            try {
+                LocalDate newLowerBound = LocalDate.parse(str);
+                dateRange.setLowerBound(newLowerBound);
+                System.out.println("New lower bound has been set to " + newLowerBound);
+            } catch (DateTimeParseException ex) {
+                System.out.println("Unable to parse string " + str + " to date.");
+            }
+        }
+        System.out.print("Enter upper bound date (leave blank for no upper bound)");
+        if (input.hasNext()) {
+            String str = input.nextLine();
+            try {
+                LocalDate newUpperBound = LocalDate.parse(input.nextLine());
+                dateRange.setUpperBound(newUpperBound);
+                System.out.println("New upper bound has been set to " + newUpperBound);
+            } catch (DateTimeParseException ex) {
+                System.out.println("Unable to parse string " + str + " to date.");
+            }
+        }
+    }
+
     private static void dumpSearchResults() {
         Scanner input = new Scanner(System.in);
-        Searcher s = new Searcher(directory, ".gz");
+        Searcher s = new Searcher(directory, ".gz", dateRange);
         final Path dumpsDir = Paths.get(System.getProperty("user.dir"), "dumps");
         if (!Files.exists(dumpsDir)) {
             System.out.println("Dumps directory doesn't exist, creating it now.");

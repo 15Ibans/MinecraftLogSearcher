@@ -1,11 +1,13 @@
 package me.ibans.minecraftlogsearch;
 
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.*;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -17,13 +19,24 @@ public class Searcher {
 
     public ArrayList<String> fileNames = new ArrayList<>();
 
-    public Searcher(String directory, String extension) {
+    public Searcher(String directory, String extension, DateRange dateRange) {
         try (Stream<Path> walk = Files.walk(Paths.get(directory))) {
-            List<String> result = walk.map(x -> x.toString())
-                    .filter(f -> f.endsWith(extension)).collect(Collectors.toList());
+            List<String> result = walk.map(Path::toFile)
+                    .filter(f -> {
+                        try {
+                            String nameWithoutExtension = FilenameUtils.removeExtension(f.getName());
+                            String logDate = StringUtils.substringBeforeLast(nameWithoutExtension, "-");
+                            LocalDate parsedDate = LocalDate.parse(logDate);
+                            return f.getName().endsWith(extension) && dateRange.isInRange(parsedDate);
+                        } catch (DateTimeException ex) {
+                            return false;
+                        }
+                    })
+                    .map(File::toString)
+                    .collect(Collectors.toList());
 
             if (result.size() > 0) {
-                result.forEach(file -> fileNames.add(file));
+                fileNames.addAll(result);
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -33,21 +46,20 @@ public class Searcher {
 
         // check the latest log too
         File latest = Paths.get(directory, "latest.log").toFile();
-        if (latest.exists()) fileNames.add(latest.toString());
+        LocalDate latestLastModified = LocalDateTime.ofInstant(Instant.ofEpochMilli(latest.lastModified()), ZoneId.systemDefault()).toLocalDate();
+        if (latest.exists() && dateRange.isInRange(latestLastModified)) {
+            fileNames.add(latest.toString());
+        }
     }
 
     public boolean canSearch() {
-        if (fileNames.size() > 0) {
-            return true;
-        } else {
-            return false;
-        }
+        return fileNames.size() > 0;
     }
 
     public void searchFiles(String searchTerm) {
         SearchData data = getResults(searchTerm);
         for (int i = 0; i < data.getLengthOfResults(); i++) {
-            System.out.println("\nFound in " + data.getFileNames(i) + " at line " + data.getLineNumber(i) + ".\n");
+            System.out.println("\n\nFound in " + data.getFileNames(i) + " at line " + data.getLineNumber(i) + ".\n");
             System.out.println(data.getSearchResult(i) + "\n\n--------------------------------------");
         }
         System.out.println(data.getNumFound() + " results found for \"" + searchTerm + "\".\n");
@@ -55,7 +67,10 @@ public class Searcher {
 
     private SearchData getResults(String searchTerm) {
         SearchData data = new SearchData();
+        int counter = 1;
+
         for (String fileName : fileNames) {
+            System.out.print("\rSearching (" + counter++ + "/" + fileNames.size() + " logs processed)");
             try {
                 FileInputStream fis = new FileInputStream(fileName);
                 // searches compressed log
@@ -148,4 +163,5 @@ public class Searcher {
         }
         return dumpData.toString();
     }
+
 }
