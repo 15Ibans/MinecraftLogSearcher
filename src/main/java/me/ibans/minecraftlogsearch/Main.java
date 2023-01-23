@@ -13,6 +13,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Scanner;
 
 public class Main {
@@ -25,7 +27,10 @@ public class Main {
 
     private static DateRange dateRange = new DateRange();
 
+    public static boolean isDebug = false;
+
     public static void main(String[] args) {
+        isDebug = Arrays.asList(args).contains("debug");
         while (showMenu) {
             menu();
         }

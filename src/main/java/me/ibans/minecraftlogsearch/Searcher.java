@@ -7,6 +7,7 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.text.DecimalFormat;
 import java.time.*;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -17,11 +18,14 @@ import java.util.zip.GZIPInputStream;
 
 public class Searcher {
 
-    public ArrayList<String> fileNames = new ArrayList<>();
+    public List<File> files = new ArrayList<>();
+
+    //todo: threaded search stuff
+    private final int THREADS = 10;
 
     public Searcher(String directory, String extension, DateRange dateRange) {
         try (Stream<Path> walk = Files.walk(Paths.get(directory))) {
-            List<String> result = walk.map(Path::toFile)
+            List<File> result = walk.map(Path::toFile)
                     .filter(f -> {
                         try {
                             String nameWithoutExtension = FilenameUtils.removeExtension(f.getName());
@@ -32,76 +36,70 @@ public class Searcher {
                             return false;
                         }
                     })
-                    .map(File::toString)
                     .collect(Collectors.toList());
 
             if (result.size() > 0) {
-                fileNames.addAll(result);
+                files.addAll(result);
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
 
-        fileNames.sort(Comparator.naturalOrder());
+        files.sort(Comparator.naturalOrder());
 
         // check the latest log too
         File latest = Paths.get(directory, "latest.log").toFile();
         LocalDate latestLastModified = LocalDateTime.ofInstant(Instant.ofEpochMilli(latest.lastModified()), ZoneId.systemDefault()).toLocalDate();
         if (latest.exists() && dateRange.isInRange(latestLastModified)) {
-            fileNames.add(latest.toString());
+            files.add(latest);
         }
     }
 
     public boolean canSearch() {
-        return fileNames.size() > 0;
+        return files.size() > 0;
     }
 
     public void searchFiles(String searchTerm) {
+        long start = System.currentTimeMillis();
         SearchData data = getResults(searchTerm);
+        long duration = System.currentTimeMillis() - start;
         for (int i = 0; i < data.getLengthOfResults(); i++) {
             System.out.println("\n\nFound in " + data.getFileNames(i) + " at line " + data.getLineNumber(i) + ".\n");
             System.out.println(data.getSearchResult(i) + "\n\n--------------------------------------");
         }
-        System.out.println(data.getNumFound() + " results found for \"" + searchTerm + "\".\n");
+        System.out.println("\n" + data.getNumFound() + " results found for \"" + searchTerm + "\".\n");
+
+        if (Main.isDebug) {
+            DecimalFormat format = new DecimalFormat("##.###");
+            System.out.println("[DEBUG] Search operation took " + format.format(duration / 1000.0) + " seconds.");
+        }
+    }
+
+    private void searchFile(File file, SearchData data, String searchTerm) throws IOException {
+        FileInputStream fis = new FileInputStream(file);
+        // searches compressed log, if it's latest.log it will be null since it's not compressed
+        GZIPInputStream gis = file.getName().endsWith(".gz") ? new GZIPInputStream(fis) : null;
+        BufferedReader buffered = new BufferedReader(new InputStreamReader(gis != null ? gis : fis));
+        int lineNumber = 0;
+        for (String line; (line = buffered.readLine()) != null; ) {
+            if (line.contains(searchTerm)) {
+                data.addToNumFound(StringUtils.countMatches(line, searchTerm));
+                data.addSearchResult(file, line, lineNumber);
+            }
+            lineNumber++;
+        }
+        if (gis != null) gis.close();
+        buffered.close();
     }
 
     private SearchData getResults(String searchTerm) {
-        SearchData data = new SearchData();
+        final SearchData data = new SearchData(false);
         int counter = 1;
 
-        for (String fileName : fileNames) {
-            System.out.print("\rSearching (" + counter++ + "/" + fileNames.size() + " logs processed)");
+        for (File file : files) {
+            System.out.print("\rSearching (" + counter++ + "/" + files.size() + " logs processed)");
             try {
-                FileInputStream fis = new FileInputStream(fileName);
-                // searches compressed log
-                if (fileName.endsWith(".gz")) {
-                    GZIPInputStream gis = new GZIPInputStream(fis);
-                    BufferedReader buffered = new BufferedReader(new InputStreamReader(gis));
-                    int lineNumber = 0;
-                    for (String line; (line = buffered.readLine()) != null;) {
-                        if (line.contains(searchTerm)) {
-                            data.addToNumFound(StringUtils.countMatches(line, searchTerm));
-                            data.addSearchResult(line, lineNumber);
-                            data.addToFileNames(fileName);
-                        }
-                        lineNumber++;
-                    }
-                    gis.close();
-                    buffered.close();
-                // searches latest.log
-                } else {
-                    BufferedReader buffered = new BufferedReader(new InputStreamReader(fis));
-                    int lineNumber = 0;
-                    for (String line; (line = buffered.readLine()) != null;) {
-                        if (line.contains(searchTerm)) {
-                            data.addToNumFound(StringUtils.countMatches(line, searchTerm));
-                            data.addSearchResult(line, lineNumber);
-                            data.addToFileNames(fileName);
-                        }
-                        lineNumber++;
-                    }
-                    buffered.close();
-                }
+                searchFile(file, data, searchTerm);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -111,57 +109,16 @@ public class Searcher {
 
     // this is basically only meant for dumping the log search data
     public String getDumpData(String searchTerm) {
-        final StringBuilder dumpData = new StringBuilder();
+        final SearchData data = new SearchData(true);
 
-        for (String fileName : fileNames) {
+        for (File file : files) {
             try {
-                FileInputStream fis = new FileInputStream(fileName);
-                // searches compressed log
-                if (fileName.endsWith(".gz")) {
-                    GZIPInputStream gis = new GZIPInputStream(fis);
-                    BufferedReader buffered = new BufferedReader(new InputStreamReader(gis));
-                    boolean foundInFile = false;
-
-                    for (String line; (line = buffered.readLine()) != null;) {
-                        if (line.contains(searchTerm)) {
-                            if (!foundInFile) {
-                                foundInFile = true;
-                                dumpData.append(fileName).append("\n\n");
-                            }
-                            dumpData.append(line).append("\n");
-                        }
-                    }
-                    if (foundInFile) {
-                        dumpData.append("\n");
-                    }
-                    gis.close();
-                    buffered.close();
-
-                // searches latest.log
-                } else {
-                    BufferedReader buffered = new BufferedReader(new InputStreamReader(fis));
-                    boolean foundInFile = false;
-
-                    for (String line; (line = buffered.readLine()) != null;) {
-                        if (line.contains(searchTerm)) {
-                            if (!foundInFile) {
-                                foundInFile = true;
-                                dumpData.append(fileName).append("\n\n");
-                            }
-                            dumpData.append(line).append("\n");
-                        }
-                    }
-                    if (foundInFile) {
-                        dumpData.append("\n");
-                    }
-
-                    buffered.close();
-                }
+                searchFile(file, data, searchTerm);
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
-        return dumpData.toString();
+        return data.getDumpData();
     }
 
 }
