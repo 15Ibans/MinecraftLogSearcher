@@ -1,15 +1,14 @@
 package me.ibans.minecraftlogsearch;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 public class SearchData {
 
-    private int numFound = 0;
-    private final List<SearchResult> results = new ArrayList<>();
+    private AtomicInteger numFound = new AtomicInteger(0);
+    private final List<SearchResult> results = Collections.synchronizedList(new ArrayList<>());
     private final StringBuilder dumpData = new StringBuilder();
 
     private boolean isDumping;
@@ -25,11 +24,11 @@ public class SearchData {
     }
 
     public int getNumFound() {
-        return numFound;
+        return numFound.get();
     }
 
     public void addToNumFound(int amount) {
-        numFound += amount;
+        numFound.addAndGet(amount);
     }
 
     public void addSearchResult(File file, String line, int lineNumber) {
@@ -61,6 +60,10 @@ public class SearchData {
 
     public String getDumpData() {
         return dumpData.toString();
+    }
+
+    public void sortData() {
+        results.sort(Comparator.comparing((SearchResult r) -> r.getFile().getName()).thenComparing(SearchResult::getLineNumber));
     }
 
 }

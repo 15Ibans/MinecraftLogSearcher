@@ -11,8 +11,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.text.DecimalFormat;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
@@ -30,7 +32,7 @@ public class Main {
     public static boolean isDebug = false;
 
     public static void main(String[] args) {
-        isDebug = Arrays.asList(args).contains("debug");
+        isDebug = !Arrays.asList(args).contains("debug");
         while (showMenu) {
             menu();
         }
@@ -57,7 +59,8 @@ public class Main {
                 "3. Change logs directory (via terminal).\n" +
                 "4. Change date bounds.\n" +
                 "5. Dump search results to text file.\n" +
-                "6. Quit.\n");
+                "6. Quit.\n" +
+                "7. Test list amounts");
         Scanner selector = new Scanner(System.in);
         System.out.print("\nOption: ");
         String option = selector.nextLine();
@@ -80,6 +83,9 @@ public class Main {
                 break;
             case "6":
                 showMenu = false;
+                break;
+            case "7":
+                runThreadBenchmark();
                 break;
             default:
                 System.out.println("Invalid option selected.");
@@ -118,7 +124,7 @@ public class Main {
 
     private static void searchFiles(String directory) {
         Scanner input = new Scanner(System.in);
-        Searcher s = new Searcher(directory, ".gz", dateRange);
+        Searcher s = new Searcher(directory, ".gz", dateRange, 15);
         if (s.canSearch()) {
             System.out.print("Enter something to search for: ");
             String searchTerm = input.nextLine();
@@ -212,6 +218,22 @@ public class Main {
                     e.printStackTrace();
                 }
             }
+        }
+    }
+
+    private static void runThreadBenchmark() {
+        DecimalFormat decimalFormat = new DecimalFormat("###.##");
+        List<Double> times = new ArrayList<>();
+        for (int i = 0; i < 700; i++) {
+            Searcher searcher = new Searcher(directory, ".gz", dateRange, i);
+            long start = System.currentTimeMillis();
+            searcher.getResults("the");
+            long duration = System.currentTimeMillis() - start;
+            times.add(duration / 1000.0);
+        }
+
+        for (int i = 0; i < times.size(); i++) {
+            System.out.println("For " + i + " thread(s): " + decimalFormat.format(times.get(i)) + " seconds.");
         }
     }
 }

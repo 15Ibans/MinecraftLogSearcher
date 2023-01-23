@@ -1,5 +1,6 @@
 package me.ibans.minecraftlogsearch;
 
+import org.apache.commons.collections4.ListUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
 
@@ -12,6 +13,10 @@ import java.time.*;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
@@ -21,7 +26,7 @@ public class Searcher {
     public List<File> files = new ArrayList<>();
 
     //todo: threaded search stuff
-    private final int THREADS = 10;
+    private int threads = 0;
 
     public Searcher(String directory, String extension, DateRange dateRange) {
         try (Stream<Path> walk = Files.walk(Paths.get(directory))) {
@@ -53,6 +58,11 @@ public class Searcher {
         if (latest.exists() && dateRange.isInRange(latestLastModified)) {
             files.add(latest);
         }
+    }
+
+    public Searcher(String directory, String extension, DateRange range, int threads) {
+        this(directory, extension, range);
+        this.threads = threads;
     }
 
     public boolean canSearch() {
@@ -92,17 +102,42 @@ public class Searcher {
         buffered.close();
     }
 
-    private SearchData getResults(String searchTerm) {
+    public SearchData getResults(String searchTerm) {
         final SearchData data = new SearchData(false);
-        int counter = 1;
 
-        for (File file : files) {
-            System.out.print("\rSearching (" + counter++ + "/" + files.size() + " logs processed)");
+        if (threads <= 1) {
+            int counter = 1;
+            for (File file : files) {
+                System.out.print("\rSearching (" + counter++ + "/" + files.size() + " logs processed)");
+                try {
+                    searchFile(file, data, searchTerm);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        } else {
+            List<List<File>> partitioned = ListUtils.partition(files, threads);
+            AtomicInteger counter = new AtomicInteger(1);
+            ExecutorService es = Executors.newCachedThreadPool();
+            for (List<File> sublist : partitioned) {
+                es.execute(() -> {
+                    for (File file : sublist) {
+                        System.out.print("\rSearching (" + counter.getAndIncrement() + "/" + files.size() + " logs processed)");
+                        try {
+                            searchFile(file, data, searchTerm);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                });
+            }
             try {
-                searchFile(file, data, searchTerm);
-            } catch (IOException e) {
+                es.shutdown();
+                es.awaitTermination(10, TimeUnit.MINUTES);
+            } catch (InterruptedException e) {
                 e.printStackTrace();
             }
+            data.sortData();
         }
         return data;
     }
