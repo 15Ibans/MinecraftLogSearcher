@@ -1,6 +1,7 @@
 package me.ibans.minecraftlogsearch;
 
 import me.ibans.minecraftlogsearch.util.PropertiesUtil;
+import org.apache.commons.cli.*;
 import org.apache.commons.lang3.SystemUtils;
 
 import javax.swing.*;
@@ -14,10 +15,7 @@ import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Scanner;
+import java.util.*;
 
 public class Main {
 
@@ -31,11 +29,84 @@ public class Main {
 
     public static boolean isDebug = false;
 
+    /*
+        args:
+             -f         --file              set the log directory
+             -s         --string            search for string in files
+             -is        --istring           search for string in files (case-insensitive)
+             -r         --regex             search in files with regex
+             -lb        --lowerbound        lower date bound
+             -ub        --upperbound        upper date bound
+
+        example: searcher -string "bruh moment" -lowerbound 2023-05-03 -upperbound
+     */
     public static void main(String[] args) {
-        isDebug = !Arrays.asList(args).contains("debug");
-        while (showMenu) {
-            menu();
+        System.out.println(Arrays.toString(args));
+        Searcher s = null;
+
+        try {
+            Options options = setupArgs();
+            CommandLineParser parser = new DefaultParser();
+            CommandLine cmd = parser.parse(options, args);
+            if (!cmd.hasOption("f")) {
+                System.out.println("Missing required argument: -f");
+                return;
+            }
+
+            File directory = new File(cmd.getOptionValue("f"));
+            SearcherBuilder builder = new SearcherBuilder();
+            builder.setLogDirectory(directory);
+
+            String searchTerm = null;
+            boolean ignoreCase = false;
+
+            if (cmd.hasOption("s")) {
+                searchTerm = cmd.getOptionValue("s");
+                builder.searchTerm(searchTerm);
+            }
+            if (cmd.hasOption("is")) {
+                searchTerm = cmd.getOptionValue("is");
+                builder.searchTerm(searchTerm);
+                ignoreCase = true;
+                builder.setIgnoreCase(ignoreCase);
+            }
+            if (cmd.hasOption("lb")) {
+                LocalDate lowerBound = parseDate(cmd.getOptionValue("lb"));
+                builder.setLowerBound(lowerBound);
+            }
+            if (cmd.hasOption("ub")) {
+                LocalDate upperBound = parseDate(cmd.getOptionValue("ub"));
+                builder.setUpperBound(upperBound);
+            }
+
+            s = builder.build();
+            s.searchFiles(searchTerm, ignoreCase);
+        } catch (ParseException e) {
+            e.printStackTrace();
         }
+    }
+
+    private static LocalDate parseDate(String dateString) {
+        LocalDate date;
+        try {
+            date = LocalDate.parse(dateString);
+        } catch (DateTimeParseException e) {
+            return null;
+        }
+        return date;
+    }
+
+    private static Options setupArgs() {
+        Options options = new Options();
+        options.addOption("s", "string", true, "Search for string in files");
+        options.addOption("is", "istring", true, "Search for string, case-insensitive");
+        options.addOption("lb", "lowerbound", true, "Lower bound date in format YYYY-MM-DD");
+        options.addOption("ub", "upperbound", true, "Upper bound date in format YYYY-MM-DD");
+        options.addOption("r", "regex", true, "Search for string using a regex");
+        options.addOption("d", "debug", false, "Enables debug mode");
+        options.addOption("f", "file", true, "Set logs directory");
+
+        return options;
     }
 
     private static void menu() {
@@ -124,7 +195,14 @@ public class Main {
 
     private static void searchFiles(String directory) {
         Scanner input = new Scanner(System.in);
-        Searcher s = new Searcher(directory, ".gz", dateRange, 15);
+//        Searcher s = new Searcher(directory, ".gz", dateRange, 15);
+        Searcher s = new SearcherBuilder()
+                .setLogDirectory(directory)
+                .setLowerBound(dateRange.getLowerBound())
+                .setUpperBound(dateRange.getUpperBound())
+                .setThreads(15)
+                .build();
+
         if (s.canSearch()) {
             System.out.print("Enter something to search for: ");
             String searchTerm = input.nextLine();
@@ -185,7 +263,13 @@ public class Main {
 
     private static void dumpSearchResults() {
         Scanner input = new Scanner(System.in);
-        Searcher s = new Searcher(directory, ".gz", dateRange);
+//        Searcher s = new Searcher(directory, ".gz", dateRange);
+        Searcher s = new SearcherBuilder()
+                .setLogDirectory(directory)
+                .setLowerBound(dateRange.getLowerBound())
+                .setUpperBound(dateRange.getUpperBound())
+                .build();
+
         final Path dumpsDir = Paths.get(System.getProperty("user.dir"), "dumps");
         if (!Files.exists(dumpsDir)) {
             System.out.println("Dumps directory doesn't exist, creating it now.");
@@ -222,15 +306,31 @@ public class Main {
     }
 
     private static void runThreadBenchmark() {
+        Scanner input = new Scanner(System.in);
+        System.out.print("Enter max # of threads to use: ");
+        int threads = 1;
+        if (input.hasNextInt()) {
+            threads = input.nextInt();
+        }
         DecimalFormat decimalFormat = new DecimalFormat("###.##");
         List<Double> times = new ArrayList<>();
-        for (int i = 0; i < 700; i++) {
-            Searcher searcher = new Searcher(directory, ".gz", dateRange, i);
+        for (int i = 1; i <= threads; i++) {
+            System.out.println("\nCurrently running at " + i + " threads");
+//            Searcher searcher = new Searcher(directory, ".gz", dateRange, i);
+            Searcher searcher = new SearcherBuilder()
+                    .setLogDirectory(directory)
+                    .setLowerBound(dateRange.getLowerBound())
+                    .setUpperBound(dateRange.getUpperBound())
+                    .setThreads(i)
+                    .build();
+
             long start = System.currentTimeMillis();
             searcher.getResults("the");
             long duration = System.currentTimeMillis() - start;
             times.add(duration / 1000.0);
         }
+
+        System.out.println();
 
         for (int i = 0; i < times.size(); i++) {
             System.out.println("For " + i + " thread(s): " + decimalFormat.format(times.get(i)) + " seconds.");
