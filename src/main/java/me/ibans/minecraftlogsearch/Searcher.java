@@ -1,5 +1,6 @@
 package me.ibans.minecraftlogsearch;
 
+import me.ibans.minecraftlogsearch.util.StringUtil;
 import org.apache.commons.collections4.ListUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -10,6 +11,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.time.*;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -18,6 +20,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
 
@@ -28,8 +31,12 @@ public class Searcher {
     //todo: threaded search stuff
     private int threads = 0;
 
-    public Searcher(String directory, String extension, DateRange dateRange) {
-        try (Stream<Path> walk = Files.walk(Paths.get(directory))) {
+    private String searchTerm;
+    private String regex;
+    private boolean ignoreCase = false;
+
+    public Searcher(File directory, String extension, DateRange dateRange) {
+        try (Stream<Path> walk = Files.walk(directory.toPath())) {
             List<File> result = walk.map(Path::toFile)
                     .filter(f -> {
                         try {
@@ -53,14 +60,14 @@ public class Searcher {
         files.sort(Comparator.naturalOrder());
 
         // check the latest log too
-        File latest = Paths.get(directory, "latest.log").toFile();
+        File latest = new File(directory, "latest.log");
         LocalDate latestLastModified = LocalDateTime.ofInstant(Instant.ofEpochMilli(latest.lastModified()), ZoneId.systemDefault()).toLocalDate();
         if (latest.exists() && dateRange.isInRange(latestLastModified)) {
             files.add(latest);
         }
     }
 
-    public Searcher(String directory, String extension, DateRange range, int threads) {
+    public Searcher(File directory, String extension, DateRange range, int threads) {
         this(directory, extension, range);
         this.threads = threads;
     }
@@ -70,8 +77,12 @@ public class Searcher {
     }
 
     public void searchFiles(String searchTerm) {
+        searchFiles(searchTerm, false);
+    }
+
+    public void searchFiles(String searchTerm, boolean ignoreCase) {
         long start = System.currentTimeMillis();
-        SearchData data = getResults(searchTerm);
+        SearchData data = getResults(searchTerm, ignoreCase);
         long duration = System.currentTimeMillis() - start;
         for (int i = 0; i < data.getLengthOfResults(); i++) {
             System.out.println("\n\nFound in " + data.getFileNames(i) + " at line " + data.getLineNumber(i) + ".\n");
@@ -85,14 +96,14 @@ public class Searcher {
         }
     }
 
-    private void searchFile(File file, SearchData data, String searchTerm) throws IOException {
+    private void searchFile(File file, SearchData data, String searchTerm, boolean ignoreCase) throws IOException {
         FileInputStream fis = new FileInputStream(file);
         // searches compressed log, if it's latest.log it will be null since it's not compressed
         GZIPInputStream gis = file.getName().endsWith(".gz") ? new GZIPInputStream(fis) : null;
         BufferedReader buffered = new BufferedReader(new InputStreamReader(gis != null ? gis : fis));
         int lineNumber = 0;
         for (String line; (line = buffered.readLine()) != null; ) {
-            if (line.contains(searchTerm)) {
+            if (StringUtil.contains(line, searchTerm, ignoreCase)) {
                 data.addToNumFound(StringUtils.countMatches(line, searchTerm));
                 data.addSearchResult(file, line, lineNumber);
             }
@@ -103,6 +114,10 @@ public class Searcher {
     }
 
     public SearchData getResults(String searchTerm) {
+        return getResults(searchTerm, false);
+    }
+
+    public SearchData getResults(String searchTerm, boolean ignoreCase) {
         final SearchData data = new SearchData(false);
 
         if (threads <= 1) {
@@ -110,8 +125,9 @@ public class Searcher {
             for (File file : files) {
                 System.out.print("\rSearching (" + counter++ + "/" + files.size() + " logs processed)");
                 try {
-                    searchFile(file, data, searchTerm);
+                    searchFile(file, data, searchTerm, ignoreCase);
                 } catch (IOException e) {
+                    System.out.println("Got an IO exception when processing file " + file.getAbsolutePath());
                     e.printStackTrace();
                 }
             }
@@ -124,8 +140,9 @@ public class Searcher {
                     for (File file : sublist) {
                         System.out.print("\rSearching (" + counter.getAndIncrement() + "/" + files.size() + " logs processed)");
                         try {
-                            searchFile(file, data, searchTerm);
+                            searchFile(file, data, searchTerm, ignoreCase);
                         } catch (IOException e) {
+                            System.out.println("Got an IO exception when processing file " + file.getAbsolutePath());
                             e.printStackTrace();
                         }
                     }
@@ -148,8 +165,9 @@ public class Searcher {
 
         for (File file : files) {
             try {
-                searchFile(file, data, searchTerm);
+                searchFile(file, data, searchTerm, false);
             } catch (IOException e) {
+                System.out.println("Got an IO exception when processing file " + file.getAbsolutePath());
                 e.printStackTrace();
             }
         }
