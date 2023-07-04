@@ -55,7 +55,7 @@ public class SearchData {
     }
 
     public String getFileNames(int index) {
-        return results.get(index).getFile().getPath();
+        return results.get(index).getFile().getAbsolutePath();
     }
 
     public String getDumpData() {
