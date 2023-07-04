@@ -66,4 +66,8 @@ public class SearchData {
         results.sort(Comparator.comparing((SearchResult r) -> r.getFile().getName()).thenComparing(SearchResult::getLineNumber));
     }
 
+    public void sortResults(Comparator<? super SearchResult> comparator) {
+        results.sort(comparator);
+    }
+
 }

@@ -31,6 +31,7 @@ public class Main {
 
     /*
         args:
+             -d         --debug             enable debug mode
              -f         --file              set the log directory
              -s         --string            search for string in files
              -is        --istring           search for string in files (case-insensitive)
@@ -60,6 +61,9 @@ public class Main {
             String searchTerm = null;
             boolean ignoreCase = false;
 
+            if (cmd.hasOption("d")) {
+                isDebug = true;
+            }
             if (cmd.hasOption("s")) {
                 searchTerm = cmd.getOptionValue("s");
                 builder.searchTerm(searchTerm);
@@ -78,9 +82,17 @@ public class Main {
                 LocalDate upperBound = parseDate(cmd.getOptionValue("ub"));
                 builder.setUpperBound(upperBound);
             }
+            if (cmd.hasOption("t")) {
+                String threadStr = cmd.getOptionValue("t");
+                try {
+                    builder.setThreads(Integer.parseInt(threadStr));
+                } catch (NumberFormatException e) {
+                    System.out.println("Invalid argument for threads: " + threadStr + ", defaulting to 15");
+                }
+            }
 
             s = builder.build();
-            s.searchFiles(searchTerm, ignoreCase);
+            s.search(searchTerm, ignoreCase);
         } catch (ParseException e) {
             e.printStackTrace();
         }
@@ -105,6 +117,7 @@ public class Main {
         options.addOption("r", "regex", true, "Search for string using a regex");
         options.addOption("d", "debug", false, "Enables debug mode");
         options.addOption("f", "file", true, "Set logs directory");
+        options.addOption("t", "threads", true, "Set the number of threads");
 
         return options;
     }
@@ -206,7 +219,7 @@ public class Main {
         if (s.canSearch()) {
             System.out.print("Enter something to search for: ");
             String searchTerm = input.nextLine();
-            s.searchFiles(searchTerm);
+            s.search(searchTerm);
         } else {
             System.out.println("No logs detected! Did you select a valid directory?");
         }

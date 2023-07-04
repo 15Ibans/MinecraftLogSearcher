@@ -1,17 +1,18 @@
 package me.ibans.minecraftlogsearch;
 
+import me.ibans.minecraftlogsearch.filesearcher.FileSearcher;
+import me.ibans.minecraftlogsearch.filesearcher.impl.DynamicFileSearcher;
+import me.ibans.minecraftlogsearch.filesearcher.impl.SizeDistributedFileSearcher;
+import me.ibans.minecraftlogsearch.filesearcher.impl.StandardFileSearcher;
 import me.ibans.minecraftlogsearch.util.StringUtil;
-import org.apache.commons.collections4.ListUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.time.*;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -76,11 +77,11 @@ public class Searcher {
         return files.size() > 0;
     }
 
-    public void searchFiles(String searchTerm) {
-        searchFiles(searchTerm, false);
+    public void search(String searchTerm) {
+        search(searchTerm, false);
     }
 
-    public void searchFiles(String searchTerm, boolean ignoreCase) {
+    public void search(String searchTerm, boolean ignoreCase) {
         long start = System.currentTimeMillis();
         SearchData data = getResults(searchTerm, ignoreCase);
         long duration = System.currentTimeMillis() - start;
@@ -113,14 +114,9 @@ public class Searcher {
         buffered.close();
     }
 
-    public SearchData getResults(String searchTerm) {
-        return getResults(searchTerm, false);
-    }
-
-    public SearchData getResults(String searchTerm, boolean ignoreCase) {
-        final SearchData data = new SearchData(false);
-
+    private SearchData getResults(String searchTerm, boolean ignoreCase) {
         if (threads <= 1) {
+            final SearchData data = new SearchData(false);
             int counter = 1;
             for (File file : files) {
                 System.out.print("\rSearching (" + counter++ + "/" + files.size() + " logs processed)");
@@ -131,32 +127,16 @@ public class Searcher {
                     e.printStackTrace();
                 }
             }
-        } else {
-            List<List<File>> partitioned = ListUtils.partition(files, threads);
-            AtomicInteger counter = new AtomicInteger(1);
-            ExecutorService es = Executors.newCachedThreadPool();
-            for (List<File> sublist : partitioned) {
-                es.execute(() -> {
-                    for (File file : sublist) {
-                        System.out.print("\rSearching (" + counter.getAndIncrement() + "/" + files.size() + " logs processed)");
-                        try {
-                            searchFile(file, data, searchTerm, ignoreCase);
-                        } catch (IOException e) {
-                            System.out.println("Got an IO exception when processing file " + file.getAbsolutePath());
-                            e.printStackTrace();
-                        }
-                    }
-                });
-            }
-            try {
-                es.shutdown();
-                es.awaitTermination(10, TimeUnit.MINUTES);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
             data.sortData();
+            return data;
+        } else {
+            FileSearcher fileSearcher = new DynamicFileSearcher();
+            return fileSearcher.getResults(files, threads, searchTerm, ignoreCase);
         }
-        return data;
+    }
+
+    public SearchData getResults(String searchTerm) {
+        return null;
     }
 
     // this is basically only meant for dumping the log search data

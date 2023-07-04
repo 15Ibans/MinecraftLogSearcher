@@ -10,7 +10,7 @@ public class SearcherBuilder {
     private boolean ignoreCase = true;
     private String regex;
     private final DateRange dateRange = new DateRange();
-    private int threads = 1;
+    private int threads = 15;
 
     public SearcherBuilder setLogDirectory(File directory) {
         logDirectory = directory;
@@ -55,7 +55,7 @@ public class SearcherBuilder {
     }
 
     public Searcher build() {
-        return new Searcher(logDirectory, ".gz" , dateRange, 15);
+        return new Searcher(logDirectory, ".gz" , dateRange, threads);
     }
 
 }
