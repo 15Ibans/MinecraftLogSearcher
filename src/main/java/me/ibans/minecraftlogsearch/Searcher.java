@@ -8,10 +8,8 @@ import org.apache.commons.lang3.StringUtils;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.time.*;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -19,16 +17,17 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
 
+// todo: refactor this garbage
 public class Searcher {
 
     public List<File> files = new ArrayList<>();
 
-    //todo: threaded search stuff
     private int threads = 0;
 
     private String searchTerm;
@@ -96,6 +95,22 @@ public class Searcher {
         }
     }
 
+    public void searchFiles(Pattern pattern) {
+        long start = System.currentTimeMillis();
+        SearchData data = getResults(pattern);
+        long duration = System.currentTimeMillis() - start;
+        for (int i = 0; i < data.getLengthOfResults(); i++) {
+            System.out.println("\n\nFound in " + data.getFileNames(i) + " at line " + data.getLineNumber(i) + ".\n");
+            System.out.println(data.getSearchResult(i) + "\n\n--------------------------------------");
+        }
+        System.out.println("\n" + data.getNumFound() + " results found for \"" + searchTerm + "\".\n");
+
+        if (Main.isDebug) {
+            DecimalFormat format = new DecimalFormat("##.###");
+            System.out.println("[DEBUG] Search operation took " + format.format(duration / 1000.0) + " seconds.");
+        }
+    }
+
     private void searchFile(File file, SearchData data, String searchTerm, boolean ignoreCase) throws IOException {
         FileInputStream fis = new FileInputStream(file);
         // searches compressed log, if it's latest.log it will be null since it's not compressed
@@ -109,10 +124,32 @@ public class Searcher {
             }
             lineNumber++;
         }
-        if (gis != null) gis.close();
         buffered.close();
+        if (gis != null) gis.close();
+        fis.close();
     }
 
+    private void searchFile(File file, SearchData data, Pattern pattern) throws IOException {
+        FileInputStream fis = new FileInputStream(file);
+        // searches compressed log, if it's latest.log it will be null since it's not compressed
+        GZIPInputStream gis = file.getName().endsWith(".gz") ? new GZIPInputStream(fis) : null;
+        BufferedReader buffered = new BufferedReader(new InputStreamReader(gis != null ? gis : fis));
+        int lineNumber = 0;
+        for (String line; (line = buffered.readLine()) != null; ) {
+            Matcher matcher = pattern.matcher(line);
+            if (matcher.find()) {
+                data.addSearchResult(file, line, lineNumber);
+                matcher.reset();
+            }
+            while (matcher.find()) {
+                data.addToNumFound(1);
+            }
+            lineNumber++;
+        }
+        buffered.close();
+        if (gis != null) gis.close();
+        fis.close();
+    }
     public SearchData getResults(String searchTerm) {
         return getResults(searchTerm, false);
     }
@@ -141,6 +178,48 @@ public class Searcher {
                         System.out.print("\rSearching (" + counter.getAndIncrement() + "/" + files.size() + " logs processed)");
                         try {
                             searchFile(file, data, searchTerm, ignoreCase);
+                        } catch (IOException e) {
+                            System.out.println("Got an IO exception when processing file " + file.getAbsolutePath());
+                            e.printStackTrace();
+                        }
+                    }
+                });
+            }
+            try {
+                es.shutdown();
+                es.awaitTermination(10, TimeUnit.MINUTES);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            data.sortData();
+        }
+        return data;
+    }
+
+    public SearchData getResults(Pattern pattern) {
+        final SearchData data = new SearchData(false);
+
+        if (threads <= 1) {
+            int counter = 1;
+            for (File file : files) {
+                System.out.print("\rSearching (" + counter++ + "/" + files.size() + " logs processed)");
+                try {
+                    searchFile(file, data, pattern);
+                } catch (IOException e) {
+                    System.out.println("Got an IO exception when processing file " + file.getAbsolutePath());
+                    e.printStackTrace();
+                }
+            }
+        } else {
+            List<List<File>> partitioned = ListUtils.partition(files, threads);
+            AtomicInteger counter = new AtomicInteger(1);
+            ExecutorService es = Executors.newCachedThreadPool();
+            for (List<File> sublist : partitioned) {
+                es.execute(() -> {
+                    for (File file : sublist) {
+                        System.out.print("\rSearching (" + counter.getAndIncrement() + "/" + files.size() + " logs processed)");
+                        try {
+                            searchFile(file, data, pattern);
                         } catch (IOException e) {
                             System.out.println("Got an IO exception when processing file " + file.getAbsolutePath());
                             e.printStackTrace();

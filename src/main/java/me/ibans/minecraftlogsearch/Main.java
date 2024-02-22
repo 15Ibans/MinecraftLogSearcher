@@ -1,6 +1,7 @@
 package me.ibans.minecraftlogsearch;
 
 import me.ibans.minecraftlogsearch.util.PropertiesUtil;
+import me.ibans.minecraftlogsearch.util.StringUtil;
 import org.apache.commons.cli.*;
 import org.apache.commons.lang3.SystemUtils;
 
@@ -15,7 +16,11 @@ import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Scanner;
+import java.util.regex.Pattern;
 
 public class Main {
 
@@ -58,11 +63,21 @@ public class Main {
             builder.setLogDirectory(directory);
 
             String searchTerm = null;
+            Pattern pattern = null;
             boolean ignoreCase = false;
 
             if (cmd.hasOption("s")) {
                 searchTerm = cmd.getOptionValue("s");
                 builder.searchTerm(searchTerm);
+            }
+            if (cmd.hasOption("r")) {
+                String regexString = cmd.getOptionValue("r");
+                if (!StringUtil.isRegexValid(regexString)) {
+                    System.out.println("Invalid regex pattern: " + regexString);
+                    return;
+                }
+                builder.setRegex(regexString);
+                pattern = Pattern.compile(regexString);
             }
             if (cmd.hasOption("is")) {
                 searchTerm = cmd.getOptionValue("is");
@@ -78,9 +93,12 @@ public class Main {
                 LocalDate upperBound = parseDate(cmd.getOptionValue("ub"));
                 builder.setUpperBound(upperBound);
             }
-
             s = builder.build();
-            s.searchFiles(searchTerm, ignoreCase);
+            if (searchTerm != null) {
+                s.searchFiles(searchTerm, ignoreCase);
+            } else if (pattern != null) {
+                s.searchFiles(pattern);
+            }
         } catch (ParseException e) {
             e.printStackTrace();
         }

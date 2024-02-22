@@ -2,8 +2,8 @@ package me.ibans.minecraftlogsearch.util;
 
 import org.apache.commons.lang3.StringUtils;
 
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 public class StringUtil {
 
@@ -29,6 +29,15 @@ public class StringUtil {
         } else {
             return cs instanceof StringBuffer ? ((StringBuffer)cs).indexOf(searchChar.toString(), start) : cs.toString().indexOf(searchChar.toString(), start);
         }
+    }
+
+    public static boolean isRegexValid(String input) {
+        try {
+            Pattern.compile(input);
+        } catch (PatternSyntaxException e) {
+            return false;
+        }
+        return true;
     }
 
 }
