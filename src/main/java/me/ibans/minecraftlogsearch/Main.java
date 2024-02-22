@@ -62,13 +62,11 @@ public class Main {
             SearcherBuilder builder = new SearcherBuilder();
             builder.setLogDirectory(directory);
 
-            String searchTerm = null;
-            Pattern pattern = null;
-            boolean ignoreCase = false;
+            SearchOptions searchOptions = new SearchOptions();
 
             if (cmd.hasOption("s")) {
-                searchTerm = cmd.getOptionValue("s");
-                builder.searchTerm(searchTerm);
+                String searchTerm = cmd.getOptionValue("s");
+                searchOptions.setSearchTerm(searchTerm);
             }
             if (cmd.hasOption("r")) {
                 String regexString = cmd.getOptionValue("r");
@@ -76,14 +74,13 @@ public class Main {
                     System.out.println("Invalid regex pattern: " + regexString);
                     return;
                 }
-                builder.setRegex(regexString);
-                pattern = Pattern.compile(regexString);
+                Pattern pattern = Pattern.compile(regexString);
+                searchOptions.setRegex(pattern);
             }
             if (cmd.hasOption("is")) {
-                searchTerm = cmd.getOptionValue("is");
-                builder.searchTerm(searchTerm);
-                ignoreCase = true;
-                builder.setIgnoreCase(ignoreCase);
+                String searchTerm = cmd.getOptionValue("s");
+                searchOptions.setSearchTerm(searchTerm);
+                searchOptions.setIgnoreCase(true);
             }
             if (cmd.hasOption("lb")) {
                 LocalDate lowerBound = parseDate(cmd.getOptionValue("lb"));
@@ -94,11 +91,7 @@ public class Main {
                 builder.setUpperBound(upperBound);
             }
             s = builder.build();
-            if (searchTerm != null) {
-                s.searchFiles(searchTerm, ignoreCase);
-            } else if (pattern != null) {
-                s.searchFiles(pattern);
-            }
+            s.searchFiles(searchOptions);
         } catch (ParseException e) {
             e.printStackTrace();
         }
@@ -220,11 +213,13 @@ public class Main {
                 .setUpperBound(dateRange.getUpperBound())
                 .setThreads(15)
                 .build();
+        SearchOptions searchOptions = new SearchOptions();
 
         if (s.canSearch()) {
             System.out.print("Enter something to search for: ");
             String searchTerm = input.nextLine();
-            s.searchFiles(searchTerm);
+            searchOptions.setSearchTerm(searchTerm);
+            s.searchFiles(searchOptions);
         } else {
             System.out.println("No logs detected! Did you select a valid directory?");
         }
@@ -287,6 +282,7 @@ public class Main {
                 .setLowerBound(dateRange.getLowerBound())
                 .setUpperBound(dateRange.getUpperBound())
                 .build();
+        SearchOptions searchOptions = new SearchOptions();
 
         final Path dumpsDir = Paths.get(System.getProperty("user.dir"), "dumps");
         if (!Files.exists(dumpsDir)) {
@@ -301,10 +297,11 @@ public class Main {
         if (s.canSearch()) {
             System.out.print("Enter something to search for: ");
             String searchTerm = input.nextLine();
+            searchOptions.setSearchTerm(searchTerm);
             System.out.print("Enter desired file name for saved dump: ");
             String dumpName = input.nextLine();
             System.out.println("Getting search results...");
-            String dump = s.getDumpData(searchTerm);
+            String dump = s.getDumpData(searchOptions);
             System.out.println("Writing to file...\n");
 
             BufferedWriter writer = null;
@@ -342,8 +339,11 @@ public class Main {
                     .setThreads(i)
                     .build();
 
+            SearchOptions searchOptions = new SearchOptions();
+            searchOptions.setSearchTerm("the");
+
             long start = System.currentTimeMillis();
-            searcher.getResults("the");
+            searcher.getResults(searchOptions);
             long duration = System.currentTimeMillis() - start;
             times.add(duration / 1000.0);
         }
