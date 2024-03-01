@@ -78,7 +78,7 @@ public class Main {
                 searchOptions.setRegex(pattern);
             }
             if (cmd.hasOption("is")) {
-                String searchTerm = cmd.getOptionValue("s");
+                String searchTerm = cmd.getOptionValue("is");
                 searchOptions.setSearchTerm(searchTerm);
                 searchOptions.setIgnoreCase(true);
             }
