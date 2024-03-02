@@ -44,7 +44,7 @@ public class Searcher {
                     })
                     .collect(Collectors.toList());
 
-            if (result.size() > 0) {
+            if (!result.isEmpty()) {
                 files.addAll(result);
             }
         } catch (IOException e) {
@@ -100,14 +100,16 @@ public class Searcher {
                     data.addSearchResult(file, line, lineNumber);
                 }
             } else if (searchOptions.getRegex() != null) {
+                int numFound = 0;
                 Matcher matcher = searchOptions.getRegex().matcher(line);
                 if (matcher.find()) {
                     data.addSearchResult(file, line, lineNumber);
                     matcher.reset();
                 }
                 while (matcher.find()) {
-                    data.addToNumFound(1);
+                    numFound++;
                 }
+                data.addToNumFound(numFound);
             }
             lineNumber++;
         }
