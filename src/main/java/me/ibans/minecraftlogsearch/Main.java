@@ -14,12 +14,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.text.DecimalFormat;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Scanner;
 import java.util.regex.Pattern;
 
@@ -173,9 +170,6 @@ public class Main {
             case "6":
                 showMenu = false;
                 break;
-            case "7":
-                runThreadBenchmark();
-                break;
             default:
                 System.out.println("Invalid option selected.");
         }
@@ -324,41 +318,6 @@ public class Main {
                     e.printStackTrace();
                 }
             }
-        }
-    }
-
-    private static void runThreadBenchmark() {
-        Scanner input = new Scanner(System.in);
-        System.out.print("Enter max # of threads to use: ");
-        int threads = 1;
-        if (input.hasNextInt()) {
-            threads = input.nextInt();
-        }
-        DecimalFormat decimalFormat = new DecimalFormat("###.##");
-        List<Double> times = new ArrayList<>();
-        for (int i = 1; i <= threads; i++) {
-            System.out.println("\nCurrently running at " + i + " threads");
-//            Searcher searcher = new Searcher(directory, ".gz", dateRange, i);
-            Searcher searcher = new SearcherBuilder()
-                    .setLogDirectory(directory)
-                    .setLowerBound(dateRange.getLowerBound())
-                    .setUpperBound(dateRange.getUpperBound())
-                    .setThreads(i)
-                    .build();
-
-            SearchOptions searchOptions = new SearchOptions();
-            searchOptions.setSearchTerm("the");
-
-            long start = System.currentTimeMillis();
-            searcher.getResults(searchOptions);
-            long duration = System.currentTimeMillis() - start;
-            times.add(duration / 1000.0);
-        }
-
-        System.out.println();
-
-        for (int i = 0; i < times.size(); i++) {
-            System.out.println("For " + i + " thread(s): " + decimalFormat.format(times.get(i)) + " seconds.");
         }
     }
 }
