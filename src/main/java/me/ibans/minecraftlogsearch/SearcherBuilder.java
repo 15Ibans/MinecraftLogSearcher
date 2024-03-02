@@ -37,7 +37,7 @@ public class SearcherBuilder {
     }
 
     public Searcher build() {
-        return new Searcher(logDirectory, ".gz" , dateRange, 15);
+        return new Searcher(logDirectory, ".gz" , dateRange, threads);
     }
 
 }

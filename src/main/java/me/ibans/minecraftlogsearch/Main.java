@@ -4,6 +4,7 @@ import me.ibans.minecraftlogsearch.util.PropertiesUtil;
 import me.ibans.minecraftlogsearch.util.StringUtil;
 import org.apache.commons.cli.*;
 import org.apache.commons.lang3.SystemUtils;
+import org.apache.commons.lang3.math.NumberUtils;
 
 import javax.swing.*;
 import java.io.BufferedWriter;
@@ -89,6 +90,11 @@ public class Main {
             if (cmd.hasOption("ub")) {
                 LocalDate upperBound = parseDate(cmd.getOptionValue("ub"));
                 builder.setUpperBound(upperBound);
+            }
+            if (cmd.hasOption("t")) {
+                String arg = cmd.getOptionValue("t");
+                int threads = NumberUtils.toInt(arg, 1);
+                builder.setThreads(threads);
             }
             s = builder.build();
             s.searchFiles(searchOptions);
