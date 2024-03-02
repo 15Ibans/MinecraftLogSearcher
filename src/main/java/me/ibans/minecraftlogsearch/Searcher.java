@@ -96,7 +96,7 @@ public class Searcher {
         for (String line; (line = buffered.readLine()) != null; ) {
             if (searchOptions.getSearchTerm() != null) {
                 if (StringUtil.contains(line, searchOptions.getSearchTerm(), searchOptions.isIgnoreCase())) {
-                    data.addToNumFound(StringUtils.countMatches(line, searchOptions.getSearchTerm()));
+                    data.addToNumFound(StringUtil.countMatches(line, searchOptions.getSearchTerm(), searchOptions.isIgnoreCase()));
                     data.addSearchResult(file, line, lineNumber);
                 }
             } else if (searchOptions.getRegex() != null) {

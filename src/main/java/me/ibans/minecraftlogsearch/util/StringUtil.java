@@ -2,6 +2,7 @@ package me.ibans.minecraftlogsearch.util;
 
 import org.apache.commons.lang3.StringUtils;
 
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -15,11 +16,18 @@ public class StringUtil {
         }
     }
 
-//    public static int countMatches(String str, String sub) {
-//        Pattern pattern = Pattern.compile(sub, Pattern.CASE_INSENSITIVE);
-//        Matcher matcher = pattern.matcher(str);
-//        return (int) matcher.results().count();
-//    }
+    public static int countMatches(String str, String sub, boolean ignoreCase) {
+        if (ignoreCase) {
+            int matches = 0;
+            Pattern pattern = Pattern.compile(Pattern.quote(sub), Pattern.CASE_INSENSITIVE);
+            Matcher matcher = pattern.matcher(str);
+            while (matcher.find()) {
+                matches++;
+            }
+            return matches;
+        }
+        return StringUtils.countMatches(str, sub);
+    }
 
     static int indexOf(CharSequence cs, CharSequence searchChar, int start) {
         if (cs instanceof String) {
