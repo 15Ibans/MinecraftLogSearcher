@@ -122,6 +122,7 @@ public class Main {
         options.addOption("r", "regex", true, "Search for string using a regex");
         options.addOption("d", "debug", false, "Enables debug mode");
         options.addOption("f", "file", true, "Set logs directory");
+        options.addOption("t", "threads", true, "Set the number of threads to search with");
 
         return options;
     }
