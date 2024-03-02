@@ -95,8 +95,9 @@ public class Searcher {
         int lineNumber = 0;
         for (String line; (line = buffered.readLine()) != null; ) {
             if (searchOptions.getSearchTerm() != null) {
-                if (StringUtil.contains(line, searchOptions.getSearchTerm(), searchOptions.isIgnoreCase())) {
-                    data.addToNumFound(StringUtil.countMatches(line, searchOptions.getSearchTerm(), searchOptions.isIgnoreCase()));
+                int matches = StringUtil.countMatches(line, searchOptions.getSearchTerm(), searchOptions.isIgnoreCase());
+                if (matches > 0) {
+                    data.addToNumFound(matches);
                     data.addSearchResult(file, line, lineNumber);
                 }
             } else if (searchOptions.getRegex() != null) {
