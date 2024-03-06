@@ -6,9 +6,6 @@ import java.time.LocalDate;
 public class SearcherBuilder {
 
     private File logDirectory;
-    private String searchTerm;
-    private boolean ignoreCase = true;
-    private String regex;
     private final DateRange dateRange = new DateRange();
     private int threads = 1;
 
@@ -22,16 +19,6 @@ public class SearcherBuilder {
         return this;
     }
 
-    public SearcherBuilder searchTerm(String searchTerm) {
-        this.searchTerm = searchTerm;
-        return this;
-    }
-
-    public SearcherBuilder setIgnoreCase(boolean ignoreCase) {
-        this.ignoreCase = ignoreCase;
-        return this;
-    }
-
     public SearcherBuilder setLowerBound(LocalDate lowerBound) {
         dateRange.setLowerBound(lowerBound);
         return this;
@@ -39,11 +26,6 @@ public class SearcherBuilder {
 
     public SearcherBuilder setUpperBound(LocalDate upperBound) {
         dateRange.setUpperBound(upperBound);
-        return this;
-    }
-
-    public SearcherBuilder setRegex(String regex) {
-        this.regex = regex;
         return this;
     }
 
@@ -55,7 +37,7 @@ public class SearcherBuilder {
     }
 
     public Searcher build() {
-        return new Searcher(logDirectory, ".gz" , dateRange, 15);
+        return new Searcher(logDirectory, ".gz" , dateRange, threads);
     }
 
 }
