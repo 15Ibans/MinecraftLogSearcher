@@ -29,6 +29,8 @@ public class Searcher {
 
     private int threads = 0;
 
+    private boolean stripEscapeSequences;
+
     public Searcher(File directory, String extension, DateRange dateRange) {
         try (Stream<Path> walk = Files.walk(directory.toPath())) {
             List<File> result = walk.map(Path::toFile)
@@ -61,9 +63,10 @@ public class Searcher {
         }
     }
 
-    public Searcher(File directory, String extension, DateRange range, int threads) {
+    public Searcher(File directory, String extension, DateRange range, int threads, boolean stripEscapeSequences) {
         this(directory, extension, range);
         this.threads = threads;
+        this.stripEscapeSequences = stripEscapeSequences;
     }
 
     public boolean canSearch() {
@@ -94,6 +97,10 @@ public class Searcher {
         BufferedReader buffered = new BufferedReader(new InputStreamReader(gis != null ? gis : fis));
         int lineNumber = 0;
         for (String line; (line = buffered.readLine()) != null; ) {
+            if (stripEscapeSequences) {
+                final String escapeSequence = "\\e\\[([0-9;]*)m";
+                line = line.replaceAll(escapeSequence, "");
+            }
             if (searchOptions.getSearchTerm() != null) {
                 int matches = StringUtil.countMatches(line, searchOptions.getSearchTerm(), searchOptions.isIgnoreCase());
                 if (matches > 0) {

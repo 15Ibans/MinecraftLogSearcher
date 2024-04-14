@@ -8,6 +8,7 @@ public class SearcherBuilder {
     private File logDirectory;
     private final DateRange dateRange = new DateRange();
     private int threads = 1;
+    private boolean stripEscapeSequences = true;
 
     public SearcherBuilder setLogDirectory(File directory) {
         logDirectory = directory;
@@ -36,8 +37,13 @@ public class SearcherBuilder {
         return this;
     }
 
+    public SearcherBuilder disableStripEscapeSequences() {
+        this.stripEscapeSequences = false;
+        return this;
+    }
+
     public Searcher build() {
-        return new Searcher(logDirectory, ".gz" , dateRange, threads);
+        return new Searcher(logDirectory, ".gz" , dateRange, threads, stripEscapeSequences);
     }
 
 }
