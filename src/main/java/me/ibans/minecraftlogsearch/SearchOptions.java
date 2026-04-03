@@ -1,19 +1,23 @@
 package me.ibans.minecraftlogsearch;
 
+import me.ibans.minecraftlogsearch.util.StringUtil;
+
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Pattern;
 
 public class SearchOptions {
 
-    private String searchTerm = null;
+    private final List<SearchTerm> searchTerms = new ArrayList<>();
     private Pattern regex = null;
     private boolean ignoreCase = false;
 
-    public String getSearchTerm() {
-        return searchTerm;
+    public List<SearchTerm> getSearchTerms() {
+        return searchTerms;
     }
 
-    public void setSearchTerm(String searchTerm) {
-        this.searchTerm = searchTerm;
+    public void addSearchTerm(SearchTerm searchTerm) {
+        this.searchTerms.add(searchTerm);
     }
 
     public Pattern getRegex() {
@@ -30,5 +34,9 @@ public class SearchOptions {
 
     public void setIgnoreCase(boolean ignoreCase) {
         this.ignoreCase = ignoreCase;
+    }
+
+    public boolean validate(String line) {
+        return searchTerms.stream().allMatch(searchTerm -> StringUtil.contains(line, searchTerm.getContent(), searchTerm.isIgnoreCase()));
     }
 }

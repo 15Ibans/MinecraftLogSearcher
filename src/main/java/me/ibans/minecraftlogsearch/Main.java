@@ -41,7 +41,7 @@ public class Main {
              -lb        --lowerbound        lower date bound
              -ub        --upperbound        upper date bound
 
-        example: searcher -string "bruh moment" -lowerbound 2023-05-03 -upperbound
+        example: searcher --string "bruh moment" --lowerbound 2023-05-03 --upperbound 2023-05-04
      */
     public static void main(String[] args) {
         System.out.println(Arrays.toString(args));
@@ -63,8 +63,18 @@ public class Main {
             SearchOptions searchOptions = new SearchOptions();
 
             if (cmd.hasOption("s")) {
-                String searchTerm = cmd.getOptionValue("s");
-                searchOptions.setSearchTerm(searchTerm);
+                String[] content = cmd.getOptionValues("s");
+                for (String str : content) {
+                    SearchTerm searchTerm = new SearchTerm(str, false);
+                    searchOptions.addSearchTerm(searchTerm);
+                }
+            }
+            if (cmd.hasOption("is")) {
+                String[] content = cmd.getOptionValues("is");
+                for (String str : content) {
+                    SearchTerm searchTerm = new SearchTerm(str, true);
+                    searchOptions.addSearchTerm(searchTerm);
+                }
             }
             if (cmd.hasOption("r")) {
                 String regexString = cmd.getOptionValue("r");
@@ -74,11 +84,6 @@ public class Main {
                 }
                 Pattern pattern = Pattern.compile(regexString);
                 searchOptions.setRegex(pattern);
-            }
-            if (cmd.hasOption("is")) {
-                String searchTerm = cmd.getOptionValue("is");
-                searchOptions.setSearchTerm(searchTerm);
-                searchOptions.setIgnoreCase(true);
             }
             if (cmd.hasOption("lb")) {
                 LocalDate lowerBound = parseDate(cmd.getOptionValue("lb"));
@@ -216,14 +221,16 @@ public class Main {
                 .build();
         SearchOptions searchOptions = new SearchOptions();
 
-        if (s.canSearch()) {
-            System.out.print("Enter something to search for: ");
-            String searchTerm = input.nextLine();
-            searchOptions.setSearchTerm(searchTerm);
-            s.searchFiles(searchOptions);
-        } else {
+        if (!s.canSearch()) {
             System.out.println("No logs detected! Did you select a valid directory?");
+            return;
         }
+
+        System.out.print("Enter something to search for: ");
+        String searchTerm = input.nextLine();
+        // todo: remove the old menu-based search?
+//        searchOptions.setSearchTerms(searchTerm);
+        s.searchFiles(searchOptions);
     }
 
     private static void changeLogDirectory() {
@@ -298,7 +305,8 @@ public class Main {
         if (s.canSearch()) {
             System.out.print("Enter something to search for: ");
             String searchTerm = input.nextLine();
-            searchOptions.setSearchTerm(searchTerm);
+            // todo: see previous todo
+//            searchOptions.setSearchTerms(searchTerm);
             System.out.print("Enter desired file name for saved dump: ");
             String dumpName = input.nextLine();
             System.out.println("Getting search results...");

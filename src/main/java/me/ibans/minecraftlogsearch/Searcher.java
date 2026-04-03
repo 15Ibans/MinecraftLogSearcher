@@ -81,8 +81,7 @@ public class Searcher {
             System.out.println("\n\nFound in " + data.getFileNames(i) + " at line " + data.getLineNumber(i) + ".\n");
             System.out.println(data.getSearchResult(i) + "\n\n--------------------------------------");
         }
-        String searchInput = searchOptions.getSearchTerm() != null ? searchOptions.getSearchTerm() : searchOptions.getRegex().toString();
-        System.out.println("\n" + data.getNumFound() + " results found for \"" + searchInput + "\".\n");
+        System.out.println("\n" + data.getNumFound() + " results found ");
 
         if (Main.isDebug) {
             DecimalFormat format = new DecimalFormat("##.###");
@@ -101,10 +100,9 @@ public class Searcher {
                 final String escapeSequence = "\\e\\[([0-9;]*)m";
                 line = line.replaceAll(escapeSequence, "");
             }
-            if (searchOptions.getSearchTerm() != null) {
-                int matches = StringUtil.countMatches(line, searchOptions.getSearchTerm(), searchOptions.isIgnoreCase());
-                if (matches > 0) {
-                    data.addToNumFound(matches);
+            if (!searchOptions.getSearchTerms().isEmpty()) {
+                if (searchOptions.validate(line)) {
+                    data.addToNumFound(1);
                     data.addSearchResult(file, line, lineNumber);
                 }
             } else if (searchOptions.getRegex() != null) {
